@@ -1,27 +1,27 @@
 # Import libraries
-# import requests
-# import os
-# import pandas as pd
-# import numpy as np
-# import datetime
-# import json
-# import matplotlib.pyplot as plt
-# import seaborn as sns
-# import nltk
-# from nltk.tokenize import word_tokenize, RegexpTokenizer
-# from nltk.stem import WordNetLemmatizer
-# from nltk.corpus import stopwords
-# import psycopg2
-# from textblob import TextBlob
-# import yaml
-# from sqlalchemy import create_engine
+import requests
+import os
+import pandas as pd
+import numpy as np
+import datetime
+import json
+import matplotlib.pyplot as plt
+import seaborn as sns
+import nltk
+from nltk.tokenize import word_tokenize, RegexpTokenizer
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
+import psycopg2
+from textblob import TextBlob
+import yaml
+from sqlalchemy import create_engine
 
 # One big wrapper function
 def tweetsToDB():
     # Read data via yaml files
-    with open(r'postgres.yaml') as file:
+    with open(r'/Users/samivanecky/airflow/pyfxns/postgres.yaml') as file:
         psql = yaml.full_load(file)
-    with open(r'api.yaml') as file:
+    with open(r'/Users/samivanecky/airflow/pyfxns/api.yaml') as file:
         api_yaml = yaml.full_load(file)
 
     tokenizer = RegexpTokenizer(r'\w+')
@@ -49,7 +49,7 @@ def tweetsToDB():
             return("Negative")
         else:
             return("Neutral")
-        
+
     def getSubjectivity(subjectivity):
         if subjectivity > 0.5:
             return("Subjective")
@@ -58,7 +58,7 @@ def tweetsToDB():
 
     # Setup connection to tweeter DB
     # Create engine string
-    connect_str = 'postgresql+psycopg2://' + psql['user'] + '@' + psql['host'] + '/' + psql['database'] 
+    connect_str = 'postgresql+psycopg2://' + psql['user'] + '@' + psql['host'] + '/' + psql['database']
 
     # Create engine connection
     engine = create_engine(connect_str)
@@ -86,11 +86,11 @@ def tweetsToDB():
 
         # Submit request
         resp = requests.request("GET", url, headers=headers)
-        
+
         # Convert data to dataframe
         respJSON = resp.json()
         temp_df = pd.json_normalize(respJSON['data'])
-        
+
         # Define token list
         words = []
 
@@ -101,7 +101,7 @@ def tweetsToDB():
                 words = words + token
             except:
                 print("Something went wrong trying to tokenize...")
-        
+
         # Iterate over sentences and get polarity and sensitivity, as well as rating
         # Define vectors to hold values
         polar_vals = []
@@ -128,7 +128,7 @@ def tweetsToDB():
 
         # Write temp data to database
         temp_df.to_sql('tweets', engine, if_exists='append')
-        
+
         # if df.empty:
         #     return temp_df
         # else:
@@ -137,9 +137,11 @@ def tweetsToDB():
         #     # Drop duplicates
         #     df = df.drop_duplicates(subset=['id'], keep='first')
         #     return(df)
-        
+
     # Test run to get tweets
-    searchTxt = 'cross country'
-    searchDropWords = ['cross country', 'xc']
+    searchTxt = 'super bowl'
+    searchDropWords = ['super bowl', 'Super Bowl', 'superbowl', 'SuperBowl', 'SB', 'sb']
     getNewTweets(searchTxt, searchDropWords)
 
+# Call function
+tweetsToDB()
