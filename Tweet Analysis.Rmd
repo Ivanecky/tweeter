@@ -1,0 +1,162 @@
+---
+title: "Tweet Analysis"
+output: html_document
+---
+
+# Setup
+```{r setup, include=FALSE}
+library(tidymodels)
+library(httr)
+library(dplyr)
+library(jsonlite)
+library(RPostgreSQL)
+library(DBI)
+library(RSQLite)
+library(ggrepel)
+library(ggimage)
+library(gganimate)
+library(plotly)
+library(ggthemes)
+library(ggpubr)
+library(reshape2)
+library(rpart)
+library(yaml)
+library(tm)
+library(SentimentAnalysis)
+library(syuzhet)
+library(wordcloud)
+library(gsubfn)
+
+setwd('/Users/samivanecky/git/tweeter/')
+
+# Read connection data from yaml
+yml <- read_yaml("postgres.yaml")
+
+# Connect to postgres
+pg <- dbConnect(
+  RPostgres::Postgres(),
+  db = yml$database,
+  host = yml$host,
+  user = yml$user,
+  port = yml$port
+)
+
+```
+
+# Test Query
+```{r}
+tweets <- dbGetQuery(pg, "SELECT * FROM tweets WHERE search_word = 'super bowl' ")
+
+# Convert to text vector
+txt <- tweets$text
+
+# Remove punctuation & other aspects that are common
+txt <- gsub("[[:punct:]]", "", txt)
+txt <- gsub("[[:digit:]]", "", txt)
+txt <- gsub("http\\w+", "", txt)
+txt <- gsub("[ \t]{2,}", "", txt)
+txt <- gsub("^\\s+|\\s+$", "", txt)
+txt <- gsub("\\n", "", txt)
+
+# Convert to lower
+txt <- tolower(txt)
+
+# Remove the words for Super Bowl
+txt <- gsub("super", "", txt)
+txt <- gsub("bowl", "", txt)
+txt <- gsub("superbowl", "", txt)
+
+# Convert to corpus
+corp <- Corpus(VectorSource(txt))
+
+# Stripping any extra white space:
+corp <- tm_map(corp, stripWhitespace)
+
+# Removing stop words
+corp <- tm_map(corp, removeWords, stopwords("english"))
+
+# Create a document term matrix
+dfMat <- DocumentTermMatrix(corp)
+
+# Get sums of words
+sums <- as.data.frame(colSums(as.matrix(dfMat)))
+sums <- rownames_to_column(sums)
+colnames(sums) <- c("term", "count")
+
+sums <- arrange(sums, desc(count))
+head <- sums[1:50,]
+```
+
+# Word Cloud
+```{r}
+wordcloud(words = head$term, freq = head$count, min.freq = 1000,
+  max.words=100, random.order=FALSE, rot.per=0.35, 
+  colors=brewer.pal(8, "Dark2"))
+```
+
+# Analysis of Sentiment
+```{r}
+temp <- tweets %>% filter(grepl("brady", tolower(text)))
+
+ggplot(temp, aes(polarity_rank, fill = polarity_rank)) +
+  geom_bar(stat = 'count') +
+  theme_fivethirtyeight() +
+  scale_fill_fivethirtyeight()
+
+ggplot(temp, aes(subjectivity_rank, fill = subjectivity_rank)) +
+  geom_bar(stat = 'count') +
+  theme_fivethirtyeight() +
+  scale_fill_fivethirtyeight()
+```
+
+```{r}
+tweets <- dbGetQuery(pg, "SELECT * FROM tweets WHERE search_word = 'super bowl' ")
+
+tweets <- tweets %>% filter(grepl("brady", tolower(text)))
+
+# Convert to text vector
+txt <- tweets$text
+
+# Remove punctuation & other aspects that are common
+txt <- gsub("[[:punct:]]", "", txt)
+txt <- gsub("[[:digit:]]", "", txt)
+txt <- gsub("http\\w+", "", txt)
+txt <- gsub("[ \t]{2,}", "", txt)
+txt <- gsub("^\\s+|\\s+$", "", txt)
+txt <- gsub("\\n", "", txt)
+
+# Convert to lower
+txt <- tolower(txt)
+
+# Remove the words for Super Bowl
+txt <- gsub("super", "", txt)
+txt <- gsub("bowl", "", txt)
+txt <- gsub("superbowl", "", txt)
+txt <- gsub("brady", "", txt)
+txt <- gsub("tom", "", txt)
+
+# Convert to corpus
+corp <- Corpus(VectorSource(txt))
+
+# Stripping any extra white space:
+corp <- tm_map(corp, stripWhitespace)
+
+# Removing stop words
+corp <- tm_map(corp, removeWords, stopwords("english"))
+
+# Create a document term matrix
+dfMat <- DocumentTermMatrix(corp)
+
+# Get sums of words
+sums <- as.data.frame(colSums(as.matrix(dfMat)))
+sums <- rownames_to_column(sums)
+colnames(sums) <- c("term", "count")
+
+sums <- arrange(sums, desc(count))
+head <- sums[1:75,]
+
+wordcloud(words = head$term, freq = head$count, min.freq = 1000,
+  max.words=100, random.order=FALSE, rot.per=0.35, 
+  colors=brewer.pal(8, "Dark2"))
+```
+
